@@ -10,7 +10,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let args = Args::parse();
 
-    let client = SevenTvGqlClient::new(dotenvy::var("SEVENTV_TOKEN").unwrap());
+    let client = SevenTvGqlClient::new(
+        dotenvy::var("SEVENTV_TOKEN").expect("SEVENTV_TOKEN environment variable not set"),
+    );
     let set = client.get_user_emote_set(&args.username).await?;
 
     match client.shuffle_set(set.id).await {
