@@ -165,6 +165,9 @@ impl SevenTvGqlClient {
                     ops.push((emotes.get(first).unwrap(), cur_target));
                     break;
                 }
+                if cur_target == *original {
+                    continue;
+                }
                 ops.push((emotes.get(original).unwrap(), cur_target));
                 cur_target = original;
                 renamed.insert(original);
