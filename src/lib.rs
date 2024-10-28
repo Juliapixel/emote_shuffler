@@ -79,11 +79,9 @@ impl SevenTvGqlClient {
 
     pub async fn get_emote_set(
         &self,
-        set_id: impl Into<String>,
+        set_id: ObjectID,
     ) -> Result<get_emote_set::GetEmoteSetEmoteSet, SevenTvGqlError> {
-        let query = GetEmoteSet::build_query(get_emote_set::Variables {
-            set_id: set_id.into(),
-        });
+        let query = GetEmoteSet::build_query(get_emote_set::Variables { set_id });
 
         let resp = self.client.post(Self::ENDPOINT).json(&query).send().await?;
 
@@ -94,13 +92,13 @@ impl SevenTvGqlClient {
 
     pub async fn rename_emote(
         &self,
-        set_id: impl Into<String>,
-        emote_id: impl Into<String>,
+        set_id: ObjectID,
+        emote_id: ObjectID,
         name: impl Into<String>,
     ) -> Result<(), SevenTvGqlError> {
         let query = EmoteRename::build_query(emote_rename::Variables {
-            set_id: set_id.into(),
-            emote_id: emote_id.into(),
+            set_id,
+            emote_id,
             name: name.into(),
         });
 
@@ -123,10 +121,8 @@ impl SevenTvGqlClient {
         Ok(())
     }
 
-    pub async fn shuffle_set(&self, set_id: impl Into<String>) -> Result<(), SevenTvGqlError> {
-        let set_id: String = set_id.into();
-
-        let set = self.get_emote_set(set_id.as_str()).await?;
+    pub async fn shuffle_set(&self, set_id: ObjectID) -> Result<(), SevenTvGqlError> {
+        let set = self.get_emote_set(set_id).await?;
 
         let mut names: Vec<&str> = set.emotes.iter().map(|e| e.name.as_str()).collect();
         if names.is_empty() {
@@ -142,14 +138,11 @@ impl SevenTvGqlClient {
             .collect();
 
         // maps original name to id
-        let emotes: HashMap<&str, &str> = set
-            .emotes
-            .iter()
-            .map(|e| (e.name.as_str(), e.id.as_str()))
-            .collect();
+        let emotes: HashMap<&str, ObjectID> =
+            set.emotes.iter().map(|e| (e.name.as_str(), e.id)).collect();
 
         // (source id, target)
-        let mut ops: Vec<(&str, &str)> = Vec::with_capacity(map.len() + 1);
+        let mut ops: Vec<(ObjectID, &str)> = Vec::with_capacity(map.len() + 1);
         let mut renamed = HashSet::<&str>::with_capacity(map.len());
 
         for name in names {
@@ -157,18 +150,18 @@ impl SevenTvGqlClient {
                 continue;
             }
             let first = name;
-            ops.push((emotes.get(first).unwrap(), "temp"));
+            ops.push((*emotes.get(first).unwrap(), "temp"));
             let mut cur_target = name;
             loop {
                 let original = map.get(cur_target).unwrap();
                 if *original == first {
-                    ops.push((emotes.get(first).unwrap(), cur_target));
+                    ops.push((*emotes.get(first).unwrap(), cur_target));
                     break;
                 }
                 if cur_target == *original {
                     continue;
                 }
-                ops.push((emotes.get(original).unwrap(), cur_target));
+                ops.push((*emotes.get(original).unwrap(), cur_target));
                 cur_target = original;
                 renamed.insert(original);
             }
@@ -189,7 +182,7 @@ impl SevenTvGqlClient {
         for (source, target) in ops {
             debug!("renaming {} to {}", source, target);
             interval.tick().await;
-            self.rename_emote(set_id.as_str(), source, target).await?;
+            self.rename_emote(set_id, source, target).await?;
             pb.inc(1);
         }
         pb.finish();
@@ -198,7 +191,7 @@ impl SevenTvGqlClient {
     }
 }
 
-type ObjectID = String;
+type ObjectID = ulid::Ulid;
 
 #[derive(graphql_client::GraphQLQuery)]
 #[graphql(
