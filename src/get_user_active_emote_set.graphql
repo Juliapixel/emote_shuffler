@@ -1,0 +1,9 @@
+query GetUserActiveEmoteSet($username: String!) {
+  users(query: $username, limit: 1) {
+    username
+    connections {
+      platform
+      emote_set_id
+    }
+  }
+}

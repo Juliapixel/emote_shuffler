@@ -1,0 +1,8 @@
+mutation EmoteRename($set_id: ObjectID!, $emote_id: ObjectID!, $name: String!) {
+  emoteSet(id: $set_id) {
+    emotes(action: UPDATE, id: $emote_id, name: $name) {
+      name
+      id
+    }
+  }
+}

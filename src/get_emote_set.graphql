@@ -1,0 +1,10 @@
+query GetEmoteSet($set_id: ObjectID!) {
+  emoteSet(id: $set_id) {
+    name
+    id
+    emotes {
+      id
+      name
+    }
+  }
+}
