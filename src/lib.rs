@@ -1,4 +1,5 @@
 use std::{
+    borrow::Cow,
     collections::{HashMap, HashSet},
     time::Duration,
 };
@@ -9,7 +10,7 @@ use log::debug;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tokio::time::MissedTickBehavior;
-use util::shuffle_slice;
+use util::{gen_temp_name, shuffle_slice};
 
 pub mod cli;
 pub mod util;
@@ -142,7 +143,7 @@ impl SevenTvGqlClient {
             set.emotes.iter().map(|e| (e.name.as_str(), e.id)).collect();
 
         // (source id, target)
-        let mut ops: Vec<(ObjectID, &str)> = Vec::with_capacity(map.len() + 1);
+        let mut ops: Vec<(ObjectID, Cow<'_, str>)> = Vec::with_capacity(map.len() + 1);
         let mut renamed = HashSet::<&str>::with_capacity(map.len());
 
         for name in names {
@@ -150,18 +151,18 @@ impl SevenTvGqlClient {
                 continue;
             }
             let first = name;
-            ops.push((*emotes.get(first).unwrap(), "temp"));
+            ops.push((*emotes.get(first).unwrap(), Cow::Owned(gen_temp_name(16))));
             let mut cur_target = name;
             loop {
                 let original = map.get(cur_target).unwrap();
                 if *original == first {
-                    ops.push((*emotes.get(first).unwrap(), cur_target));
+                    ops.push((*emotes.get(first).unwrap(), Cow::Borrowed(cur_target)));
                     break;
                 }
                 if cur_target == *original {
                     continue;
                 }
-                ops.push((*emotes.get(original).unwrap(), cur_target));
+                ops.push((*emotes.get(original).unwrap(), Cow::Borrowed(cur_target)));
                 cur_target = original;
                 renamed.insert(original);
             }
@@ -174,10 +175,11 @@ impl SevenTvGqlClient {
             ProgressStyle::with_template(
                 "{spinner} [{pos}/{len}] {bar:30.green/gray} ETA: {eta_precise:>}",
             )
-            .unwrap(),
+            .unwrap()
+            .tick_chars("⠁⠂⠄⡀⢀⠠⠐⠈ "),
         );
 
-        pb.enable_steady_tick(Duration::from_millis(200));
+        pb.enable_steady_tick(Duration::from_millis(100));
 
         for (source, target) in ops {
             debug!("renaming {} to {}", source, target);
